@@ -11,7 +11,7 @@ $output = json_decode(file_get_contents('php://input'), TRUE); // Получим
 $chat_id = $output['message']['chat']['id']; // Выделим идентификатор чата
 $first_name = $output['message']['chat']['first_name']; // Выделим имя собеседника
 $message = $output['message']['text']; // Выделим сообщение собеседника
-print($output);
+print '$output';
 /**
  * Получим команды от пользователя.
  * Переведём их для удобства в нижний регистр
@@ -20,6 +20,7 @@ switch(strtolower_ru($message)) {
   case ('привет'):
   case ('/hello'):
     sendMessage($chat_id, 'Привет, '. $first_name . '! ' . $emoji['preload'] );
+    sendMessage($chat_id, $output);
     break;
   case ('/start'):
     break;

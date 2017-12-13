@@ -1,174 +1,43 @@
-<!DOCTYPE html>
-<html>
-<head>
-	<title></title>
-</head>
-<body>
-
 <?php
-
-define('BOT_TOKEN', '475837364:AAFF8qSKY6UQF0ou-zPK37XPuZ3qdDZK9do');
-define('API_URL', 'https://api.telegram.org/bot'.BOT_TOKEN.'/');
-
-function apiRequestWebhook($method, $parameters) {
-  if (!is_string($method)) {
-    error_log("Method name must be a string\n");
-    return false;
-  }
-
-  if (!$parameters) {
-    $parameters = array();
-  } else if (!is_array($parameters)) {
-    error_log("Parameters must be an array\n");
-    return false;
-  }
-
-  $parameters["method"] = $method;
-
-  header("Content-Type: application/json");
-  echo json_encode($parameters);
-  return true;
+/**
+ * URL-адрес бота и его маркер.
+ */
+$access_token = '475837364:AAFF8qSKY6UQF0ou-zPK37XPuZ3qdDZK9do';
+$api = 'https://api.telegram.org/bot' . $access_token;
+/**
+ * Зададим основные переменные.
+ */
+$output = json_decode(file_get_contents('php://input'), TRUE); // Получим то, что передано скрипту ботом в POST-сообщении и распарсим
+$chat_id = $output['message']['chat']['id']; // Выделим идентификатор чата
+$first_name = $output['message']['chat']['first_name']; // Выделим имя собеседника
+$message = $output['message']['text']; // Выделим сообщение собеседника
+print($output);
+/**
+ * Получим команды от пользователя.
+ * Переведём их для удобства в нижний регистр
+ */
+switch(strtolower_ru($message)) {
+  case ('привет'):
+  case ('/hello'):
+    sendMessage($chat_id, 'Привет, '. $first_name . '! ' . $emoji['preload'] );
+    break;
+  case ('/start'):
+    break;
+  default:
+    sendMessage($chat_id, 'Неизвестная команда!' );
+    break;
 }
-
-function exec_curl_request($handle) {
-  $response = curl_exec($handle);
-
-  if ($response === false) {
-    $errno = curl_errno($handle);
-    $error = curl_error($handle);
-    error_log("Curl returned error $errno: $error\n");
-    curl_close($handle);
-    return false;
-  }
-
-  $http_code = intval(curl_getinfo($handle, CURLINFO_HTTP_CODE));
-  curl_close($handle);
-
-  if ($http_code >= 500) {
-    // do not wat to DDOS server if something goes wrong
-    sleep(10);
-    return false;
-  } else if ($http_code != 200) {
-    $response = json_decode($response, true);
-    error_log("Request has failed with error {$response['error_code']}: {$response['description']}\n");
-    if ($http_code == 401) {
-      throw new Exception('Invalid access token provided');
-    }
-    return false;
-  } else {
-    $response = json_decode($response, true);
-    if (isset($response['description'])) {
-      error_log("Request was successfull: {$response['description']}\n");
-    }
-    $response = $response['result'];
-  }
-
-  return $response;
+/**
+ * Функция отправки сообщения в чат sendMessage().
+ */
+function sendMessage($chat_id, $message) {
+  file_get_contents($GLOBALS['api'] . '/sendMessage?chat_id=' . $chat_id . '&text=' . urlencode($message));
 }
-
-function apiRequest($method, $parameters) {
-  if (!is_string($method)) {
-    error_log("Method name must be a string\n");
-    return false;
-  }
-
-  if (!$parameters) {
-    $parameters = array();
-  } else if (!is_array($parameters)) {
-    error_log("Parameters must be an array\n");
-    return false;
-  }
-
-  foreach ($parameters as $key => &$val) {
-    // encoding to JSON array parameters, for example reply_markup
-    if (!is_numeric($val) && !is_string($val)) {
-      $val = json_encode($val);
-    }
-  }
-  $url = API_URL.$method.'?'.http_build_query($parameters);
-
-  $handle = curl_init($url);
-  curl_setopt($handle, CURLOPT_RETURNTRANSFER, true);
-  curl_setopt($handle, CURLOPT_CONNECTTIMEOUT, 5);
-  curl_setopt($handle, CURLOPT_TIMEOUT, 60);
-
-  return exec_curl_request($handle);
+/**
+* Функция перевода символов в нижний регистр, учитывающая кириллицу
+*/
+function strtolower_ru($text) {
+ $alfavitlover = array('ё','й','ц','у','к','е','н','г', 'ш','щ','з','х','ъ','ф','ы','в', 'а','п','р','о','л','д','ж','э', 'я','ч','с','м','и','т','ь','б','ю');
+ $alfavitupper = array('Ё','Й','Ц','У','К','Е','Н','Г', 'Ш','Щ','З','Х','Ъ','Ф','Ы','В', 'А','П','Р','О','Л','Д','Ж','Э', 'Я','Ч','С','М','И','Т','Ь','Б','Ю');
+ return str_replace($alfavitupper,$alfavitlover,strtolower($text));
 }
-
-function apiRequestJson($method, $parameters) {
-  if (!is_string($method)) {
-    error_log("Method name must be a string\n");
-    return false;
-  }
-
-  if (!$parameters) {
-    $parameters = array();
-  } else if (!is_array($parameters)) {
-    error_log("Parameters must be an array\n");
-    return false;
-  }
-
-  $parameters["method"] = $method;
-
-  $handle = curl_init(API_URL);
-  curl_setopt($handle, CURLOPT_RETURNTRANSFER, true);
-  curl_setopt($handle, CURLOPT_CONNECTTIMEOUT, 5);
-  curl_setopt($handle, CURLOPT_TIMEOUT, 60);
-  curl_setopt($handle, CURLOPT_POSTFIELDS, json_encode($parameters));
-  curl_setopt($handle, CURLOPT_HTTPHEADER, array("Content-Type: application/json"));
-
-  return exec_curl_request($handle);
-}
-
-function processMessage($message) {
-  // process incoming message
-  $message_id = $message['message_id'];
-  $chat_id = $message['chat']['id'];
-  if (isset($message['text'])) {
-    // incoming text message
-    $text = $message['text'];
-
-    if (strpos($text, "/start") === 0) {
-      apiRequestJson("sendMessage", array('chat_id' => $chat_id, "text" => 'Hello', 'reply_markup' => array(
-        'keyboard' => array(array('Hello', 'Hi')),
-        'one_time_keyboard' => true,
-        'resize_keyboard' => true)));
-    } else if ($text === "Hello" || $text === "Hi") {
-      apiRequest("sendMessage", array('chat_id' => $chat_id, "text" => 'Nice to meet you'));
-    } else if (strpos($text, "/stop") === 0) {
-      // stop now
-    } else {
-      apiRequestWebhook("sendMessage", array('chat_id' => $chat_id, "reply_to_message_id" => $message_id, "text" => 'Cool'));
-    }
-  } else {
-    apiRequest("sendMessage", array('chat_id' => $chat_id, "text" => 'I understand only text messages'));
-  }
-}
-
-
-define('WEBHOOK_URL', 'https://my-site.example.com/secret-path-for-webhooks/');
-
-if (php_sapi_name() == 'cli') {
-  // if run from console, set or delete webhook
-  apiRequest('setWebhook', array('url' => isset($argv[1]) && $argv[1] == 'delete' ? '' : WEBHOOK_URL));
-  exit;
-}
-
-
-$content = file_get_contents("php://input");
-$update = json_decode($content, true);
-
-if (!$update) {
-  // receive wrong update, must not happen
-  exit;
-}
-
-if (isset($update["message"])) {
-  processMessage($update["message"]);
-}
-
-?>
-<h1>Привееет!</h1>
-
-</body>
-</html>
